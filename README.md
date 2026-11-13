@@ -44,7 +44,7 @@ Adversarial coverage also checks that a colder second station determines field m
 
 Only a complete successful pipeline becomes query data. `fetchedAt` records completion time, separately from the fixed measurement date. A rejected endpoint publishes no partial snapshot. TanStack Query allows four attempts total, restarting the entire pipeline each time. The three retry delays are 1, 2, and 4 seconds plus independently sampled integer jitter from 0–250 ms; retries stop after exhaustion. There is no endpoint retry helper or polling.
 
-The shared options disable focus/reconnect refresh and use `networkMode: 'always'` for the self-contained mock API. This increment does not create an application QueryClient or connect fetching to React. Persistence, hydration, and the data hook remain later increments; the hello-world screen and API are unchanged.
+The shared options disable focus/reconnect refresh and use `networkMode: 'always'` for the self-contained mock API. This increment does not create an application QueryClient or connect fetching to React. React hydration and the data hook remain later increments; the hello-world screen and API are unchanged.
 
 ```sh
 npm run test:run -- src/data/fieldData.test.ts
@@ -52,6 +52,24 @@ npm run build
 ```
 
 The targeted suite passes 10 cases using fresh QueryClients, module-boundary endpoint mocks, fake timers, and controlled randomness. Coverage includes sequential batching, atomic publication, empty results, transient recovery with changed identifiers, four-attempt exhaustion at each endpoint, and exact retry timing at minimum, intermediate, and maximum jitter.
+
+## Snapshot persistence (Increment 4)
+
+`src/data/fieldData.ts` now exports `readSavedSnapshot()` and `saveSnapshot(snapshot)`. They use the exact localStorage key `frost-indicator:field-snapshot:v1:2027-01-15`, keeping raw fields, stations, and readings rather than derived summaries. Call `saveSnapshot` only with a complete successful query result.
+
+- Reads validate schema version, the fixed reference date, a parseable fetch timestamp, arrays, nonempty required strings, finite numeric-or-null temperatures, and real ISO calendar dates. Field/station ids must be unique; station-to-field and reading-to-station references must resolve.
+- An absent, malformed, or mismatched entry returns `null`. There is no expiration for valid fixed-date observations. Domain summaries will be recomputed from the raw snapshot during React integration.
+- Storage access, JSON parsing/serialization, quota, and write failures are caught. Invalid writes do not replace a valid saved snapshot. Complete successful empty results can replace older populated snapshots.
+- These helpers remain outside the retryable query function. Storage failures cannot initiate network retries or discard a successful in-memory query result. Storage is same-origin/device only and cannot guarantee data on a first visit.
+
+The helpers are tested but not yet connected to React or an automatic success subscription. Increment 5 will add one-time hydration and saving after complete query successes.
+
+```sh
+npm run test:run -- src/data/fieldPersistence.test.ts src/data/fieldData.test.ts
+npm run build
+```
+
+Both data suites passed 109 cases, covering snapshot acceptance/rejection, overflowing JSON numbers, invalid-write retention, serialization and storage failures, authoritative empty replacement, and the existing loader/retry behavior.
 
 Currently, two official plugins are available:
 
