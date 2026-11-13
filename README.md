@@ -38,6 +38,21 @@ The targeted suite passes 20 cases covering window boundaries, inclusive zero ri
 
 Adversarial coverage also checks that a colder second station determines field minimum/risk without overwriting individual histories, older readings determine station minima and ordering, and field name/id ordering wins over unknown/safe category grouping and frost severity. These are assertions in the existing 20 cases, not additional test cases.
 
+## Snapshot loading (Increment 3)
+
+`src/data/fieldData.ts` exports the raw `Snapshot` type and `fieldSnapshotQueryOptions`. The query loads fields, then batches their ids into the station request, then batches station ids into the readings request for January 9–15, 2027. Empty fields skip both later requests; fields without stations skip readings while remaining in the snapshot.
+
+Only a complete successful pipeline becomes query data. `fetchedAt` records completion time, separately from the fixed measurement date. A rejected endpoint publishes no partial snapshot. TanStack Query allows four attempts total, restarting the entire pipeline each time. The three retry delays are 1, 2, and 4 seconds plus independently sampled integer jitter from 0–250 ms; retries stop after exhaustion. There is no endpoint retry helper or polling.
+
+The shared options disable focus/reconnect refresh and use `networkMode: 'always'` for the self-contained mock API. This increment does not create an application QueryClient or connect fetching to React. Persistence, hydration, and the data hook remain later increments; the hello-world screen and API are unchanged.
+
+```sh
+npm run test:run -- src/data/fieldData.test.ts
+npm run build
+```
+
+The targeted suite passes 10 cases using fresh QueryClients, module-boundary endpoint mocks, fake timers, and controlled randomness. Coverage includes sequential batching, atomic publication, empty results, transient recovery with changed identifiers, four-attempt exhaustion at each endpoint, and exact retry timing at minimum, intermediate, and maximum jitter.
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
