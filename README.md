@@ -44,7 +44,7 @@ Adversarial coverage also checks that a colder second station determines field m
 
 Only a complete successful pipeline becomes query data. `fetchedAt` records completion time, separately from the fixed measurement date. A rejected endpoint publishes no partial snapshot. TanStack Query allows four attempts total, restarting the entire pipeline each time. The three retry delays are 1, 2, and 4 seconds plus independently sampled integer jitter from 0–250 ms; retries stop after exhaustion. There is no endpoint retry helper or polling.
 
-The shared options disable focus/reconnect refresh and use `networkMode: 'always'` for the self-contained mock API. This increment does not create an application QueryClient or connect fetching to React. React hydration and the data hook remain later increments; the hello-world screen and API are unchanged.
+The shared options disable focus/reconnect refresh and use `networkMode: 'always'` for the self-contained mock API. Increment 3 introduced the query without React integration; Increment 5 connects the client and hook as described below. The hello-world screen and API remain unchanged.
 
 ```sh
 npm run test:run -- src/data/fieldData.test.ts
@@ -58,11 +58,11 @@ The targeted suite passes 10 cases using fresh QueryClients, module-boundary end
 `src/data/fieldData.ts` now exports `readSavedSnapshot()` and `saveSnapshot(snapshot)`. They use the exact localStorage key `frost-indicator:field-snapshot:v1:2027-01-15`, keeping raw fields, stations, and readings rather than derived summaries. Call `saveSnapshot` only with a complete successful query result.
 
 - Reads validate schema version, the fixed reference date, a parseable fetch timestamp, arrays, nonempty required strings, finite numeric-or-null temperatures, and real ISO calendar dates. Field/station ids must be unique; station-to-field and reading-to-station references must resolve.
-- An absent, malformed, or mismatched entry returns `null`. There is no expiration for valid fixed-date observations. Domain summaries will be recomputed from the raw snapshot during React integration.
+- An absent, malformed, or mismatched entry returns `null`. There is no expiration for valid fixed-date observations. The React hook recomputes domain summaries from each successful raw snapshot.
 - Storage access, JSON parsing/serialization, quota, and write failures are caught. Invalid writes do not replace a valid saved snapshot. Complete successful empty results can replace older populated snapshots.
 - These helpers remain outside the retryable query function. Storage failures cannot initiate network retries or discard a successful in-memory query result. Storage is same-origin/device only and cannot guarantee data on a first visit.
 
-The helpers are tested but not yet connected to React or an automatic success subscription. Increment 5 will add one-time hydration and saving after complete query successes.
+Increment 5 connects these helpers to one-time client hydration and a success-only persistence subscription, keeping them outside retryable network work.
 
 ```sh
 npm run test:run -- src/data/fieldPersistence.test.ts src/data/fieldData.test.ts
@@ -70,6 +70,25 @@ npm run build
 ```
 
 Both data suites passed 109 cases, covering snapshot acceptance/rejection, overflowing JSON numbers, invalid-write retention, serialization and storage failures, authoritative empty replacement, and the existing loader/retry behavior.
+
+## Query client and React hook (Increment 5)
+
+`src/data/queryClient.ts` creates one application-lifetime `queryClient` before React renders. `src/main.tsx` provides it through `QueryClientProvider`, retaining StrictMode. The same `createFieldQueryClient()` factory gives each integration test an isolated client.
+
+- Client creation reads and validates storage once, seeding the snapshot query synchronously with `fetchedAt` as its update time. Infinite cache retention applies even before the first observer mounts.
+- `src/hooks/useFieldData.ts` exports `useFieldData()` and its `FieldData` result type. The hook returns summaries, the last-success time, refresh status, a terminal error message, and a guarded `refresh()` callback. Summaries are memoized by snapshot identity.
+- Mounting a hook refreshes stale data in the background. Query owns concurrent-request and StrictMode deduplication; repeated Refresh calls during an active request are no-ops. No polling, custom store, or cancellation layer is added.
+- Refresh failures retain previous summaries and their timestamp. Without a successful snapshot, fields remain `null`; successful empty results yield `[]`. Retry starts a new complete pipeline after settlement, clearing the terminal warning while refreshing.
+- One cache subscription saves only successful network results for the snapshot key. Hydration, manual cache writes, unrelated queries, retry/status changes, and exhausted failures do not write storage. A request can finish and save after all observers unmount.
+
+The hello-world screen deliberately does not consume the hook yet, so opening it does not start API requests. The live overview is Increment 6. Without a saved snapshot, an all-failure first visit cannot show real field data.
+
+```sh
+npm run test:run -- src/hooks/useFieldData.test.tsx
+npm run build
+```
+
+The hook/client suite passed 14 cases covering first-render hydration, refresh/retry transitions, retained data and timestamps, empty replacement, concurrent/StrictMode consumers, unmount completion, optional or invalid storage, delayed observers, and success-only persistence. The provider-mounted hello-world screen was also checked in the browser.
 
 Currently, two official plugins are available:
 
