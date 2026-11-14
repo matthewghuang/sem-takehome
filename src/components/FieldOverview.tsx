@@ -54,90 +54,63 @@ export function FieldOverview({ fields, isLoading, selectedFieldId, onSelect }: 
     getRowId: (summary) => summary.field.id,
   })
   const rowModel = table.getRowModel()
-  const [activeCell, setActiveCell] = useState<{ rowId: string | null; column: number }>({
-    rowId: null, column: 0,
-  })
-  const activeRowId = activeCell.rowId !== null && rowModel.rowsById[activeCell.rowId]
-    ? activeCell.rowId : null
+  const [activeRowId, setActiveRowId] = useState<string | null>(null)
+  const entryRowId = activeRowId !== null && rowModel.rowsById[activeRowId]
+    ? activeRowId : rowModel.rows[0]?.id ?? null
 
-  function navigateCells(event: KeyboardEvent<HTMLTableElement>) {
-    const target = event.target
-    if (!(target instanceof HTMLElement)) return
-    const cell = target.closest('th, td')
+  function navigateRows(event: KeyboardEvent<HTMLDivElement>) {
     if (
-      !(cell instanceof HTMLTableCellElement) || cell.closest('table') !== event.currentTarget ||
-      (target !== cell && !(target instanceof HTMLButtonElement)) ||
       event.altKey || event.metaKey ||
       (event.ctrlKey && event.key !== 'Home' && event.key !== 'End')
     ) return
-    const row = cell.parentElement
-    if (!(row instanceof HTMLTableRowElement)) return
-    const rows = event.currentTarget.rows
-    let rowIndex = row.rowIndex
-    let column = cell.cellIndex
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault()
+      return
+    }
+    if (
+      event.key !== 'ArrowUp' && event.key !== 'ArrowDown' &&
+      event.key !== 'Home' && event.key !== 'End'
+    ) return
+    event.preventDefault()
+    if (rowModel.rows.length === 0) return
 
+    const rows = event.currentTarget.querySelector('tbody')?.rows
+    if (!rows) return
+    const target = event.target
+    const row = target instanceof HTMLElement ? target.closest('tr[data-field-id]') : null
+    const currentIndex = row instanceof HTMLTableRowElement ? row.sectionRowIndex : -1
+    let nextIndex: number
     switch (event.key) {
       case 'ArrowUp':
-      case 'ArrowDown': {
-        const step = event.key === 'ArrowUp' ? -1 : 1
-        for (let index = rowIndex + step; index >= 0 && index < rows.length; index += step) {
-          if (index === 0 || rows[index].hasAttribute('data-field-id')) {
-            rowIndex = index
-            break
-          }
-        }
+        nextIndex = Math.max(0, currentIndex - 1)
         break
-      }
-      case 'ArrowLeft':
-        column = Math.max(0, column - 1)
-        break
-      case 'ArrowRight':
-        column = Math.min(row.cells.length - 1, column + 1)
+      case 'ArrowDown':
+        nextIndex = Math.min(rows.length - 1, currentIndex + 1)
         break
       case 'Home':
-        if (event.ctrlKey) rowIndex = 0
-        column = 0
-        break
-      case 'End':
-        if (event.ctrlKey) {
-          rowIndex = rows.length - 1
-          while (rowIndex > 0 && !rows[rowIndex].hasAttribute('data-field-id')) rowIndex--
-        }
-        column = rows[rowIndex].cells.length - 1
+        nextIndex = 0
         break
       default:
-        return
+        nextIndex = rows.length - 1
     }
-    event.preventDefault()
-    const destination = rows[rowIndex].cells[column]
-    const button = column === 0 ? destination.querySelector('button') : null
-    const focusTarget = button ?? destination
-    focusTarget.focus()
+    rows[nextIndex].querySelector('button')?.focus()
   }
 
   return (
     <>
     <p id="table-keyboard-help" className="text-sm text-muted-foreground">
-      Keyboard: Tab into the table cells, then use arrow keys to move.
-      Home/End move to the row edges; Ctrl+Home/End move to the table edges.
-      Tab or Shift+Tab leaves the cells.
-      Enter or Space on a field name selects it.
+      Keyboard: Up/Down move between field rows. Left/Right do nothing.
+      Home/End move to the first/last row. Enter or Space selects the focused field.
+      Tab or Shift+Tab leaves the rows.
     </p>
     <Table
       className="min-w-[52rem]"
-      onKeyDown={navigateCells}
-      onFocus={(event) => {
-        const target = event.target
-        const cell = target instanceof HTMLElement ? target.closest('th, td') : null
-        if (cell instanceof HTMLTableCellElement && cell.closest('table') === event.currentTarget) {
-          setActiveCell({ rowId: cell.parentElement?.dataset.fieldId ?? null, column: cell.cellIndex })
-        }
-      }}
       containerProps={{
         role: 'region',
         'aria-label': 'Field overview table',
         'aria-describedby': 'overview-explanation table-keyboard-help',
         tabIndex: 0,
+        onKeyDown: navigateRows,
         className: 'rounded-xl border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
       }}
     >
@@ -147,12 +120,11 @@ export function FieldOverview({ fields, isLoading, selectedFieldId, onSelect }: 
       <TableHeader>
         {table.getHeaderGroups().map((group) => (
           <TableRow key={group.id}>
-            {group.headers.map((header, column) => (
+            {group.headers.map((header) => (
               <TableHead
                 key={header.id}
                 scope="col"
-                tabIndex={activeRowId === null && activeCell.column === column ? 0 : -1}
-                className="px-4 py-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                className="px-4 py-3"
               >
                 {header.isPlaceholder ? null : <table.FlexRender header={header} />}
               </TableHead>
@@ -188,17 +160,17 @@ export function FieldOverview({ fields, isLoading, selectedFieldId, onSelect }: 
               onSelect(row.id)
             }}
           >
-            {row.getAllCells().map((cell, column) => (
+            {row.getAllCells().map((cell) => (
               <TableCell
                 key={cell.id}
-                tabIndex={column !== 0 && activeRowId === row.id && activeCell.column === column ? 0 : -1}
-                className="max-w-64 px-4 py-4 align-top break-words whitespace-normal focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                className="max-w-64 px-4 py-4 align-top break-words whitespace-normal"
               >
                 {cell.column.id === 'field' ? (
                   <Button
                     type="button"
                     variant="link"
-                    tabIndex={activeRowId === row.id && activeCell.column === column ? 0 : -1}
+                    tabIndex={entryRowId === row.id ? 0 : -1}
+                    onFocus={() => setActiveRowId(row.id)}
                     aria-pressed={selectedFieldId === row.id}
                     aria-controls="field-detail"
                     onClick={(event) => {
