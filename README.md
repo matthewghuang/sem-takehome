@@ -68,8 +68,6 @@ Ultimately, I'd profile the application first to identify actual bottlenecks rat
 
 ## AI Usage
 
-## AI Usage
-
 - I used **oh-my-pi** as my agent harness, with OpenAI's Astra for planning and Sol for implementation.
 - I spent the first 30 minutes planning the application with Astra. I made the key architectural decisions, including choosing the libraries, defining the application's layers, and deciding how data fetching and state management would work, before handing the plan off to Sol for implementation.
 - AI generated all the implementation code, including components, styling, and tests. My role was primarily planning, reviewing, and directing the agent.
