@@ -34,7 +34,7 @@ npm run test:run -- src/domain/fieldSummary.test.ts
 npm run build
 ```
 
-The targeted suite passes 20 cases covering window boundaries, inclusive zero risk, null/missing data, joins, no input mutation, offline semantics, both trend levels, changing reporting stations, and deterministic ordering. `npm test` starts Vitest in watch mode; React Testing Library and jsdom are configured for later UI increments.
+The targeted suite passes 20 cases covering window boundaries, inclusive zero risk, null/missing data, joins, no input mutation, offline semantics, both trend levels, changing reporting stations, and deterministic ordering. `npm test` starts Vitest in watch mode; React Testing Library and jsdom run the App and hook integration suites.
 
 Adversarial coverage also checks that a colder second station determines field minimum/risk without overwriting individual histories, older readings determine station minima and ordering, and field name/id ordering wins over unknown/safe category grouping and frost severity. These are assertions in the existing 20 cases, not additional test cases.
 
@@ -44,7 +44,7 @@ Adversarial coverage also checks that a colder second station determines field m
 
 Only a complete successful pipeline becomes query data. `fetchedAt` records completion time, separately from the fixed measurement date. A rejected endpoint publishes no partial snapshot. TanStack Query allows four attempts total, restarting the entire pipeline each time. The three retry delays are 1, 2, and 4 seconds plus independently sampled integer jitter from 0–250 ms; retries stop after exhaustion. There is no endpoint retry helper or polling.
 
-The shared options disable focus/reconnect refresh and use `networkMode: 'always'` for the self-contained mock API. Increment 3 introduced the query without React integration; Increment 5 connects the client and hook as described below. The hello-world screen and API remain unchanged.
+The shared options disable focus/reconnect refresh and use `networkMode: 'always'` for the self-contained mock API. Increment 3 introduced the query without React integration; Increment 5 connects the client and hook as described below. The supplied API remains unchanged.
 
 ```sh
 npm run test:run -- src/data/fieldData.test.ts
@@ -99,7 +99,7 @@ The hook/client suite passed 14 cases covering first-render hydration, refresh/r
 - Saved rows and the last-success timestamp remain visible during refresh and after failure. One persistent Refresh/Retry button uses `aria-disabled`, rather than removing keyboard focus, during requests.
 - The skip link targets the main landmark. Section headings, a caption, scoped column headers, and a named keyboard-focusable table overflow region provide structure. The Table primitive accepts `containerProps` to put focus and labeling on its actual scroll container.
 - Table cells have one roving Tab stop. From the scroll region, Tab enters the current cell or field-name button; arrow keys move between headers, cells, and field buttons without wrapping. Home/End move to the row edges, Ctrl+Home/End to the table edges, and Tab/Shift+Tab exit normally. Loading skeletons and empty-state messages are skipped. Stable field ids preserve cell focus across refresh/reordering; if a field disappears, the same header column becomes the next cell entry.
-- Arrow navigation alone does not select a field. Enter/Space on its native button, or a click, selects it and leaves focus on that trigger.
+- Arrow navigation alone does not select a field. Enter/Space on its native button, a button click, or a click anywhere in its data row selects it. Row clicks focus the field-name button so keyboard navigation can continue; rows retain native table semantics and a selected-row tint.
 
 ```sh
 npm run test:run -- src/App.test.tsx
@@ -110,13 +110,15 @@ The overview's loading, recovery, cached-data, and keyboard-navigation scenarios
 
 Real-API browser checks confirmed River Flats −2°C and South Slope −3°C as the first two frost-risk rows, and Creekside 0.5°C with No frost observed. Reload showed all eight saved rows and the last-success time during background refresh. Skip-link navigation and keyboard Refresh retained focus. Error exhaustion/recovery was verified deterministically in tests, without changing the API's failure rate.
 
-At 320 CSS pixels the document stayed 320 pixels wide; only the table scrolled horizontally, including with keyboard arrows. The Refresh target measured 32 pixels high. Measured light-theme contrast was 4.95:1 for muted text, 17.96:1 for the frost badge, and 18.42:1 for the active 2-pixel focus outline. VoiceOver and 200% zoom remain checks for the final acceptance increment; this is not a full accessibility-conformance claim.
+Final viewport, contrast, target-size, and screen-reader verification evidence is recorded under Increment 8 below.
 
 Cell navigation was checked in the real browser at 320 CSS pixels: Tab entered the Field header, Down reached River Flats, Right reached its crop, and End focused its dated trend while automatically scrolling it into view. Ctrl+Home/End reached the table edges, Shift+Tab returned to the scroll region, and normal Tab exited the cells without a trap. The focused cell had a visible 2-pixel outline; the document remained 320 pixels wide and no browser errors were reported.
 
 ## Field selection and station detail (Increment 7)
 
 App stores only the selected field id and resolves it against the current summaries. Selection buttons expose `aria-pressed` and `aria-controls="field-detail"`; the persistent polite status announces the selected name alongside request transitions. No selection triggers a network request or moves focus into detail.
+
+Whole-row pointer selection is available on crop, minimum, status, trend, and row background areas. Headers, captions, loading placeholders, and empty-state rows do not select fields. The row-click update passed all 26 App integration cases and the build. Tests verify no extra API requests; real-browser checks confirmed pointer selection followed by keyboard selection.
 
 `src/components/FieldDetail.tsx` shows the selected field's dated trend and changing-reporting-stations caveat, followed by coldest-first shadcn station cards. Each card has a station heading, Reporting/Offline label, seven-day minimum, dated trend, and all seven chronological daily lows. Nulls say `No reading`; no-data stations remain visible last. The missing-data note is informational, not a second network alert. Fields without stations have a distinct empty message.
 
@@ -125,6 +127,77 @@ Selection and detail remain usable while refreshing and after exhausted failures
 All 24 App integration cases and the build passed. Coverage includes Enter/Space and button focus, exact field comparison dates, station order and offline/missing histories, all-missing/no-station/complete-history distinctions, selected-detail retention and Retry updates, selection disappearance, reload hydration, and malformed/mismatched/blocked storage.
 
 Real-API keyboard review selected River Flats with Enter and South Slope with Space while retaining trigger focus. River Flats showed cooling by 1°C from January 14 to 15; S-02/S-03/S-04/S-05 tied for its coldest seven-day minimum, with S-03 still marked Offline. S-03 had no readings on January 14–15, and all five displayed stations had no reading on January 12. At 320 CSS pixels, all five station histories retained seven entries and the document had no horizontal overflow. Reloaded saved rows remained selectable during refresh, and completion did not steal focus from the selected field button. No browser errors were reported.
+
+## Final acceptance review (Increment 8)
+
+Increment 8 automated run: **167 tests passed across five files**; `npm run build` passed. The subsequent row-click update was checked with the targeted App suite described above.
+
+The final browser review used the real mock API at its supplied `FAILURE_RATE = 0.05`; no API implementation or failure-rate changes were made. No UI defects were observed that required production changes in this increment.
+
+### Functional and keyboard evidence
+
+- The visible window was January 9–15, 2027. River Flats and South Slope appeared first with Frost risk; Creekside showed No frost observed. The overview and one River Flats selection exposed field cooling, tied coldest stations, and the offline S-03 without raw API inspection.
+- Reload displayed eight saved rows and the last-success timestamp while background refresh was still active. Selecting River Flats with Enter and South Slope with Space worked during that refresh; focus remained on South Slope after completion.
+- The skip link focused the main landmark. Tab/Shift+Tab entered and left the table without a trap. Arrow keys, Home/End, and Ctrl+Home/End moved between headers, cells, and field buttons; overflow scrolled the focused cell into view.
+- The browser accessibility tree exposed one h1, section h2s, station h3s, a captioned semantic table with five column headers, pressed field buttons, named detail, and seven dated term/definition pairs per station. One persistent atomic polite status contained request and selection text. Missing-data information was a note, not a duplicate error alert. Native VoiceOver speech is not claimed by this inspection.
+- Frost/offline statuses and trend directions remained understandable through visible text rather than color or hover. All five River Flats histories retained seven entries; S-03 showed No reading on January 14–15 and every station showed No reading on January 12.
+
+### Layout and zoom
+
+Chrome's native **Page zoom** setting was set to **200%**, then restored to 100% after the check. This was not a CSS transform or device-pixel-ratio-only simulation. The zoomed overview, field selection, trend comparison, missing-data note, and station cards remained readable; keyboard navigation still worked.
+
+| Browser check | CSS viewport width | Document scroll width |
+| --- | ---: | ---: |
+| Narrow WebKit viewport | 320 px | 320 px |
+| Native Chrome 200% zoom | 640 px | 640 px |
+
+Horizontal overflow was confined to the overview's scroll region in both checks, not the document.
+
+### Measured light-theme contrast and targets
+
+Contrast used actual computed colors composited over their rendered ancestor backgrounds, converted through canvas sRGB pixels to WCAG relative luminance.
+
+| Sample | Contrast | Minimum |
+| --- | ---: | ---: |
+| Muted text, dates, and station minima on white | 4.95:1 | 4.5:1 |
+| Muted text on the selected-row tint | 4.83:1 | 4.5:1 |
+| Status text | 19.56:1 | 4.5:1 |
+| Frost risk badge | 17.96:1 | 4.5:1 |
+| No frost observed / Reporting badges | 16.60:1 | 4.5:1 |
+| Offline badge | 19.56:1 | 4.5:1 |
+| Active focus outline | 18.42:1 | 3:1 |
+| Decorative trend arrows, lowest contrast | 4.95:1 | 3:1 |
+
+Field buttons, cells, and the table region had visible 2-pixel focus outlines. Interactive controls exceeded the 24×24 CSS-pixel target requirement:
+
+| Control | Width | Height |
+| --- | ---: | ---: |
+| Smallest field button | 44.47 px | 32 px |
+| Refresh | 72.89 px | 32 px |
+| Skip link | 183.64 px | 40 px |
+
+### Verification limit
+
+**VoiceOver listening/navigation remains unverified.** VoiceOver was not running, and the read-only macOS `System Events` accessibility check returned `UI elements enabled = false`. Browser accessibility-tree and live-region checks passed, but do not replace a human VoiceOver review. No full WCAG 2.2 AA conformance claim is made.
+
+### Final automated verification
+
+Run from the repository root; no external services, secrets, or environment variables are required:
+
+```sh
+npm run test:run
+npm run build
+```
+
+The deterministic tests cover exhausted retries, retained snapshots/detail, successful Retry, invalid or unavailable storage, and focus through request transitions without modifying the backend to force errors.
+
+### Backend limitations and proposed improvements
+
+- Saved snapshots are optional, same-origin/device browser storage. Storage can be unavailable or evicted; without a prior successful snapshot, an all-failure first visit cannot display real readings. The in-memory query still works when persistence fails.
+- No cache expiration is appropriate for this fixed-date exercise, not a live production freshness policy. A real backend should expose measurement/fetch freshness, a snapshot revision or ETag, and ideally one consistent snapshot response across fields, stations, and readings.
+- Production errors should identify retryable failures and supply retry timing where appropriate. The current mock provides only rejected promises, so bounded Query retries restart the whole pipeline.
+- Missing observations can hide frost events, and inferred Offline means no numeric reports on the last two dates—not confirmed station hardware failure. Backend report timestamps/quality flags and unique station/date readings would make those distinctions explicit.
+- Query and Table do not reduce the complete snapshot payload. If data volume requires it, server-side paging/windowing and batched query endpoints belong in the backend contract rather than changing this exercise's mock API.
 
 Currently, two official plugins are available:
 

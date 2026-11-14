@@ -178,7 +178,16 @@ export function FieldOverview({ fields, isLoading, selectedFieldId, onSelect }: 
             <TableCell colSpan={columns.length} className="px-4 py-8">No fields available.</TableCell>
           </TableRow>
         ) : rowModel.rows.map((row) => (
-          <TableRow key={row.id} data-field-id={row.id}>
+          <TableRow
+            key={row.id}
+            data-field-id={row.id}
+            data-state={selectedFieldId === row.id ? 'selected' : undefined}
+            className="cursor-pointer data-[state=selected]:bg-muted/50"
+            onClick={(event) => {
+              event.currentTarget.querySelector('button')?.focus()
+              onSelect(row.id)
+            }}
+          >
             {row.getAllCells().map((cell, column) => (
               <TableCell
                 key={cell.id}
@@ -192,7 +201,10 @@ export function FieldOverview({ fields, isLoading, selectedFieldId, onSelect }: 
                     tabIndex={activeRowId === row.id && activeCell.column === column ? 0 : -1}
                     aria-pressed={selectedFieldId === row.id}
                     aria-controls="field-detail"
-                    onClick={() => onSelect(row.id)}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onSelect(row.id)
+                    }}
                     className="h-auto min-h-8 max-w-full justify-start px-0 text-left whitespace-normal aria-pressed:font-semibold aria-pressed:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   >
                     {row.original.field.name}

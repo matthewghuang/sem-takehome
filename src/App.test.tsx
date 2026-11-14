@@ -658,4 +658,44 @@ describe('Frost Monitor overview', () => {
     expect(within(detail).getAllByRole('definition').map((value) => value.textContent))
       .toEqual(Array(7).fill('2°C'))
   })
+
+  it('selects from every part of a data row and keeps keyboard selection on the native field button', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderDashboard()
+    await settle()
+    const riverRow = screen.getByRole('button', { name: 'River Flats' }).closest('tr')!
+    const appleRow = screen.getByRole('button', { name: 'Apple Orchard' }).closest('tr')!
+    const clicks = [
+      { target: within(riverRow).getByText('Pears'), field: 'River Flats' },
+      { target: within(appleRow).getByText('4°C'), field: 'Apple Orchard' },
+      { target: within(riverRow).getByText('Frost risk'), field: 'River Flats' },
+      { target: within(appleRow).getByText('Steady 0°C'), field: 'Apple Orchard' },
+      { target: riverRow, field: 'River Flats' },
+    ]
+    for (const { target, field } of clicks) {
+      await user.click(target)
+      expect(screen.getByRole('region', { name: field })).toBeVisible()
+      expect(screen.getByRole('button', { name: field })).toHaveFocus()
+      expect(screen.getByRole('button', { name: field })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('status')).toHaveTextContent(`Selected field: ${field}.`)
+    }
+    await user.keyboard('{ArrowDown} ')
+    expect(screen.getByRole('region', { name: 'Apple Orchard' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Apple Orchard' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'River Flats' })).toHaveAttribute('aria-pressed', 'false')
+    expect(getFields).toHaveBeenCalledTimes(1)
+    expect(getStations).toHaveBeenCalledTimes(1)
+    expect(getReadings).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not select a field when column headers or the caption are clicked', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderDashboard()
+    await settle()
+    await user.click(screen.getByRole('columnheader', { name: 'Crop' }))
+    await user.click(screen.getByText('Seven-day field observations, frost-risk fields first.'))
+    expect(screen.getByText('Select a field to view its stations.')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'River Flats' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Apple Orchard' })).toHaveAttribute('aria-pressed', 'false')
+  })
 })
