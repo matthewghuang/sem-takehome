@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { addDays, AS_OF_DATE } from '@/api/mockApi'
 import { FieldOverview } from '@/components/FieldOverview'
+import { FieldDetail } from '@/components/FieldDetail'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useFieldData } from '@/hooks/useFieldData'
@@ -9,6 +11,8 @@ const fromDate = addDays(AS_OF_DATE, -6)
 
 function App() {
   const { fields, fetchedAt, isRefreshing, error, refresh } = useFieldData()
+  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null)
+  const selectedField = fields?.find(({ field }) => field.id === selectedFieldId) ?? null
   const status = isRefreshing
     ? fields === null ? 'Loading field data…' : 'Refreshing field data…'
     : error !== null || fields === null ? '' : 'Field data loaded.'
@@ -48,6 +52,7 @@ function App() {
         <div className="space-y-3">
           <p role="status" aria-live="polite" aria-atomic="true" className="min-h-6 text-sm">
             {status}
+            {selectedField !== null && `${status ? ' ' : ''}Selected field: ${selectedField.field.name}.`}
           </p>
           {fetchedAt !== null && (
             <p className="text-sm break-words text-muted-foreground">
@@ -75,12 +80,21 @@ function App() {
               Reporting stations may differ between days.
             </p>
           </div>
-          <FieldOverview fields={fields} isLoading={isRefreshing} />
+          <FieldOverview
+            fields={fields}
+            isLoading={isRefreshing}
+            selectedFieldId={selectedField?.field.id ?? null}
+            onSelect={setSelectedFieldId}
+          />
         </section>
 
         <section id="field-detail" aria-labelledby="field-detail-heading" className="space-y-3 rounded-xl border p-5">
-          <h2 id="field-detail-heading" className="text-xl font-semibold">Station detail</h2>
-          <p className="text-sm text-muted-foreground">Select a field to view its stations.</p>
+          {selectedField === null ? (
+            <>
+              <h2 id="field-detail-heading" className="text-xl font-semibold">Station detail</h2>
+              <p className="text-sm text-muted-foreground">Select a field to view its stations.</p>
+            </>
+          ) : <FieldDetail field={selectedField} />}
         </section>
       </main>
     </>

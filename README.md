@@ -1,6 +1,6 @@
 # Frost Monitor
 
-A React/TypeScript field frost overview using shadcn/ui, TanStack Query, and TanStack Table. Measurements use the fixed reference date January 15, 2027, not the computer clock.
+A React/TypeScript field frost dashboard using shadcn/ui, TanStack Query, and TanStack Table. Measurements use the fixed reference date January 15, 2027, not the computer clock.
 
 ## UI foundation
 
@@ -12,7 +12,7 @@ Install dependencies with `npm ci`, then run `npm run dev` for the dashboard or 
 - Generated Button, Table, Badge, Card, Alert, and Skeleton components live in `src/components/ui`. Import the shared `cn` utility from `@/lib/utils`.
 - TanStack Query manages the complete snapshot lifecycle; TanStack Table v9 supplies the typed, core-only overview model. No virtualization, filtering, user sorting, or pagination is added.
 
-The starter and hello-world screens have been replaced with the live Frost Monitor overview. StrictMode and the generated theme are retained. Field names are plain text at this review gate; field selection and station histories are Increment 7. The mock API remains unchanged.
+The dashboard includes a live field overview and inline station detail. StrictMode and the generated theme are retained. Native field-name buttons select detail without another API request. The mock API remains unchanged.
 
 ## Domain analysis (Increment 2)
 
@@ -92,27 +92,39 @@ The hook/client suite passed 14 cases covering first-render hydration, refresh/r
 
 ## Live overview and resilient shell (Increment 6)
 
-`src/App.tsx` keeps the heading, fixed measurement date/window, overview table, and station-detail prompt mounted through loading, refresh, empty, and failure states. `src/components/FieldOverview.tsx` uses TanStack Table v9's `useTable`, stable module-scoped typed columns, and field-id row keys. All rows render normally through shadcn's semantic Table components.
+`src/App.tsx` keeps the heading, fixed measurement date/window, overview table, and station-detail region mounted through loading, refresh, empty, and failure states. `src/components/FieldOverview.tsx` uses TanStack Table v9's `useTable`, stable module-scoped typed columns, and field-id row keys. All rows render normally through shadcn's semantic Table components.
 
 - Overview columns show Field, Crop, Coldest daily low (°C), Frost status, and Recent trend. Visible labels distinguish Frost risk, No frost observed, and No data. Trends include direction, signed change, and both comparison dates; cooling arrows are blue, warming arrows orange, and steady arrows neutral. Text labels remain visible so color is supplementary. Missing measurements never become zero.
 - Initial loading uses decorative skeletons with one polite status message. Exhausted first-load failure shows an inline alert and Retry, not a replacement error screen. A successful empty response says `No fields available.`
 - Saved rows and the last-success timestamp remain visible during refresh and after failure. One persistent Refresh/Retry button uses `aria-disabled`, rather than removing keyboard focus, during requests.
 - The skip link targets the main landmark. Section headings, a caption, scoped column headers, and a named keyboard-focusable table overflow region provide structure. The Table primitive accepts `containerProps` to put focus and labeling on its actual scroll container.
-- Table cells now have one roving Tab stop. From the scroll region, Tab enters the current cell; arrow keys move between headers and data cells without wrapping. Home/End move to the row edges, Ctrl+Home/End to the table edges, and Tab/Shift+Tab exit normally. Loading skeletons and empty-state messages are skipped. Stable field ids preserve cell focus across refresh/reordering; if a field disappears, the same header column becomes the next cell entry. Cell navigation does not select a field.
-- Field selection is intentionally not exposed yet. The mounted detail region retains `Select a field to view its stations.` until Increment 7 implements the complete interaction.
+- Table cells have one roving Tab stop. From the scroll region, Tab enters the current cell or field-name button; arrow keys move between headers, cells, and field buttons without wrapping. Home/End move to the row edges, Ctrl+Home/End to the table edges, and Tab/Shift+Tab exit normally. Loading skeletons and empty-state messages are skipped. Stable field ids preserve cell focus across refresh/reordering; if a field disappears, the same header column becomes the next cell entry.
+- Arrow navigation alone does not select a field. Enter/Space on its native button, or a click, selects it and leaves focus on that trigger.
 
 ```sh
 npm run test:run -- src/App.test.tsx
 npm run build
 ```
 
-All 11 App scenarios passed, covering the overview states above plus bounded cell navigation, Tab exit/re-entry, loading/empty navigation, focused-row reordering, and a usable cell entry after row removal. User-event uses a local async wrapper because this installed Testing Library version detects Jest timers, not Vitest timers. The build passed.
+The overview's loading, recovery, cached-data, and keyboard-navigation scenarios remain covered by the App integration suite. User-event uses a local async wrapper because this installed Testing Library version detects Jest timers, not Vitest timers.
 
 Real-API browser checks confirmed River Flats −2°C and South Slope −3°C as the first two frost-risk rows, and Creekside 0.5°C with No frost observed. Reload showed all eight saved rows and the last-success time during background refresh. Skip-link navigation and keyboard Refresh retained focus. Error exhaustion/recovery was verified deterministically in tests, without changing the API's failure rate.
 
 At 320 CSS pixels the document stayed 320 pixels wide; only the table scrolled horizontally, including with keyboard arrows. The Refresh target measured 32 pixels high. Measured light-theme contrast was 4.95:1 for muted text, 17.96:1 for the frost badge, and 18.42:1 for the active 2-pixel focus outline. VoiceOver and 200% zoom remain checks for the final acceptance increment; this is not a full accessibility-conformance claim.
 
 Cell navigation was checked in the real browser at 320 CSS pixels: Tab entered the Field header, Down reached River Flats, Right reached its crop, and End focused its dated trend while automatically scrolling it into view. Ctrl+Home/End reached the table edges, Shift+Tab returned to the scroll region, and normal Tab exited the cells without a trap. The focused cell had a visible 2-pixel outline; the document remained 320 pixels wide and no browser errors were reported.
+
+## Field selection and station detail (Increment 7)
+
+App stores only the selected field id and resolves it against the current summaries. Selection buttons expose `aria-pressed` and `aria-controls="field-detail"`; the persistent polite status announces the selected name alongside request transitions. No selection triggers a network request or moves focus into detail.
+
+`src/components/FieldDetail.tsx` shows the selected field's dated trend and changing-reporting-stations caveat, followed by coldest-first shadcn station cards. Each card has a station heading, Reporting/Offline label, seven-day minimum, dated trend, and all seven chronological daily lows. Nulls say `No reading`; no-data stations remain visible last. The missing-data note is informational, not a second network alert. Fields without stations have a distinct empty message.
+
+Selection and detail remain usable while refreshing and after exhausted failures. Retry replaces both overview and selected detail from one successful snapshot. If the selected id disappears, the detail region returns to its prompt rather than displaying stale content. Reload persists raw observations, not the selection: saved rows appear immediately, can be selected during background refresh, and recompute detail from the saved snapshot.
+
+All 24 App integration cases and the build passed. Coverage includes Enter/Space and button focus, exact field comparison dates, station order and offline/missing histories, all-missing/no-station/complete-history distinctions, selected-detail retention and Retry updates, selection disappearance, reload hydration, and malformed/mismatched/blocked storage.
+
+Real-API keyboard review selected River Flats with Enter and South Slope with Space while retaining trigger focus. River Flats showed cooling by 1°C from January 14 to 15; S-02/S-03/S-04/S-05 tied for its coldest seven-day minimum, with S-03 still marked Offline. S-03 had no readings on January 14–15, and all five displayed stations had no reading on January 12. At 320 CSS pixels, all five station histories retained seven entries and the document had no horizontal overflow. Reloaded saved rows remained selectable during refresh, and completion did not steal focus from the selected field button. No browser errors were reported.
 
 Currently, two official plugins are available:
 
