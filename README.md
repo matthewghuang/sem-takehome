@@ -1,3 +1,5 @@
+Actual time spent: a few minutes over 3h
+
 # Frost Monitor
 
 A React/TypeScript field frost dashboard using shadcn/ui, TanStack Query, and TanStack Table.
