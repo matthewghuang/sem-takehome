@@ -8,6 +8,10 @@ A React/TypeScript field frost dashboard using shadcn/ui, TanStack Query, and Ta
 
 Install dependencies with `npm ci`, then run `npm run dev` for the dashboard or `npm run build` for the production build.
 
+## Tests
+
+Run `npm run test:run`
+
 ## Architecture
 
 I structured the application into five layers:

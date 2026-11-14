@@ -160,6 +160,8 @@ Keep a persistent polite status region for loading/selection messages, hide deco
 
 ### 4. Add deterministic behavioral coverage
 
+**Current test policy:** The seven-test cleanup supersedes the exhaustive test inventories in the earlier increments and below. Keep two domain scenarios (risk/window isolation; trends/minima/offline), two persistence boundaries (broken references; failed writes), and three real App flows (selection; cached failure/Retry; first-load failure/Retry). Remove standalone loader/hook suites and scalar input matrices. Mock only external API endpoints, keep the real Query retry policy, and assert user-visible outcomes rather than internal call choreography or exact copy.
+
 `package.json` currently has dev/build/lint/preview scripts and no test setup. Add development dependencies `vitest`, `jsdom`, `@testing-library/react`, `@testing-library/user-event`, and `@testing-library/jest-dom`, using versions compatible with the existing Vite 8 and React 19 installation. Add scripts `test: vitest` and `test:run: vitest run`.
 
 Update `vite.config.ts` to import defineConfig from `vitest/config`, retain its React and Tailwind plugins and source alias, and configure the jsdom test environment and `src/test/setup.ts` setup file. In that new setup file import `@testing-library/jest-dom/vitest` and register React Testing Library cleanup with Vitest afterEach. Tests import Vitest APIs explicitly rather than adding test globals to the application TypeScript configuration.
